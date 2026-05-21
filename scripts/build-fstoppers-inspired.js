@@ -91,6 +91,7 @@ const reviewLinks = [
 const imageVariants = {
   feature: { width: 920, height: 640, fit: "cover", quality: 78 },
   story: { width: 520, height: 352, fit: "cover", quality: 76 },
+  body: { width: 1080, fit: "inside", quality: 78 },
   thumb: { width: 180, height: 135, fit: "cover", quality: 72 },
   square: { width: 180, height: 180, fit: "cover", quality: 72 },
   contest: { width: 680, height: 390, fit: "cover", quality: 76 },
@@ -187,8 +188,14 @@ function stripMarkdown(value = "") {
     .trim();
 }
 
-function stripMarkdownImages(value = "") {
-  return cleanText(value).replace(/^!\[[^\]]*\]\([^)]+\)\s*$/gm, "");
+function extractMarkdownImages(markdown = "") {
+  const urls = [];
+  const pattern = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+  for (const match of markdown.matchAll(pattern)) {
+    const url = match[1];
+    if (/^https?:\/\//i.test(url)) urls.push(url);
+  }
+  return [...new Set(urls)];
 }
 
 function inlineMarkdown(value = "") {
@@ -282,12 +289,15 @@ async function writeVariant(sourceBuffer, url, variantName, options) {
 async function localizeImages() {
   await fs.mkdir(imageDir, { recursive: true });
   const localized = new Map();
-  const uniqueUrls = [...new Set(images)];
+  const articleImageUrls = articles.flatMap((article) => article.imageUrls || []);
+  const bodyImageUrls = new Set(articleImageUrls);
+  const uniqueUrls = [...new Set([...images, ...articleImageUrls])];
 
   for (const url of uniqueUrls) {
     const variants = {};
     let sourceBuffer = null;
-    for (const [variantName, options] of Object.entries(imageVariants)) {
+    const variantEntries = Object.entries(imageVariants).filter(([variantName]) => variantName !== "body" || bodyImageUrls.has(url));
+    for (const [variantName, options] of variantEntries) {
       const fileName = imageFileName(url, variantName);
       const filePath = path.join(imageDir, fileName);
       if (await pathExists(filePath)) {
@@ -321,11 +331,12 @@ function extractDeck(markdown) {
   return previewText(paragraph || "A Roam & Roses story on style, beauty, culture, and modern visual taste.");
 }
 
-function markdownToHtml(markdown) {
+function markdownToHtml(markdown, options = {}) {
   const lines = cleanText(markdown).split("\n");
   const html = [];
   let paragraph = [];
   let listItems = [];
+  let skippedHeroImage = false;
 
   const flushParagraph = () => {
     if (!paragraph.length) return;
@@ -344,6 +355,24 @@ function markdownToHtml(markdown) {
     if (!line || /^-{3,}$/.test(line)) {
       flushParagraph();
       flushList();
+      continue;
+    }
+    const imageMatch = line.match(/^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)$/);
+    if (imageMatch) {
+      flushParagraph();
+      flushList();
+      const alt = stripMarkdown(imageMatch[1] || "Article image");
+      const url = imageMatch[2];
+      if (options.skipFirstImage && !skippedHeroImage) {
+        skippedHeroImage = true;
+        continue;
+      }
+      const src = imageSrc(url, "body");
+      html.push(
+        `<figure class="article-image"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt || "Article image")}" loading="lazy" />${
+          alt ? `<figcaption>${escapeHtml(alt)}</figcaption>` : ""
+        }</figure>`
+      );
       continue;
     }
     if (/^#\s+/.test(line)) continue;
@@ -379,7 +408,8 @@ function localDate(value) {
 
 function articleRecordToArray(record) {
   const markdown = cleanText(record.markdown || "");
-  const image = images[record.imageIndex % images.length] || images[0];
+  const imageUrls = Array.isArray(record.imageUrls) ? record.imageUrls : extractMarkdownImages(markdown);
+  const image = imageUrls[0] || images[record.imageIndex % images.length] || images[0];
   const article = [
     cleanText(record.category),
     cleanText(record.title),
@@ -387,10 +417,11 @@ function articleRecordToArray(record) {
     image,
     cleanText(record.date),
     record.slug,
-    markdownToHtml(markdown),
+    markdownToHtml(markdown, { skipFirstImage: Boolean(imageUrls.length) }),
     cleanText(record.author),
   ];
   article.sourceFile = record.sourceFile;
+  article.imageUrls = imageUrls;
   return article;
 }
 
@@ -400,7 +431,8 @@ async function loadPublishedRecords() {
   if (!Array.isArray(records)) return [];
   return records.map((record) => ({
     ...record,
-    markdown: stripMarkdownImages(record.markdown || ""),
+    markdown: cleanText(record.markdown || ""),
+    imageUrls: Array.isArray(record.imageUrls) ? record.imageUrls : extractMarkdownImages(record.markdown || ""),
   }));
 }
 
@@ -417,31 +449,37 @@ async function clearReleasedFiles(files) {
 async function loadArticleContent() {
   const authors = ["Mara Ellison", "Felicia Bloom", "Nina Vale", "June Hart", "Cleo Nash", "Ari Lane"];
   const records = await loadPublishedRecords();
-  const existingSourceFiles = new Set(records.map((record) => record.sourceFile).filter(Boolean));
   const skipReleased = process.env.SKIP_RELEASED === "1";
   const files = skipReleased ? [] : await readReleasedFiles();
 
   for (let index = 0; index < files.length; index += 1) {
     const file = files[index];
     const sourceFile = `released/${file}`;
-    if (existingSourceFiles.has(sourceFile)) continue;
     const filePath = path.join(releasedDir, file);
     const stat = await fs.stat(filePath);
-    const markdown = stripMarkdownImages(await fs.readFile(filePath, "utf8"));
+    const markdown = cleanText(await fs.readFile(filePath, "utf8"));
     const title = extractTitle(markdown, file);
     const slug = slugify(title);
     const category = categoryFor(title, markdown);
-    records.push({
+    const existingIndex = records.findIndex((record) => record.sourceFile === sourceFile || record.slug === slug);
+    const existing = existingIndex >= 0 ? records[existingIndex] : {};
+    const nextRecord = {
       sourceFile,
       title,
       slug,
       category,
       deck: extractDeck(markdown),
-      date: localDate(stat.mtime),
-      author: authors[records.length % authors.length],
-      imageIndex: records.length % images.length,
+      date: existing.date || localDate(stat.mtime),
+      author: existing.author || authors[records.length % authors.length],
+      imageIndex: existing.imageIndex ?? records.length % images.length,
+      imageUrls: extractMarkdownImages(markdown),
       markdown,
-    });
+    };
+    if (existingIndex >= 0) {
+      records[existingIndex] = { ...existing, ...nextRecord };
+    } else {
+      records.push(nextRecord);
+    }
   }
 
   if (records.length) {
@@ -1722,6 +1760,23 @@ main {
 
 .article-body p {
   margin: 0 0 17px;
+}
+
+.article-image {
+  margin: 28px 0;
+}
+
+.article-image img {
+  width: 100%;
+  max-height: 620px;
+  object-fit: cover;
+}
+
+.article-image figcaption {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .article-body ul {
