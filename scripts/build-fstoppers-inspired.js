@@ -162,6 +162,8 @@ function cleanText(value = "") {
   return String(value)
     .replace(/\r\n/g, "\n")
     .replace(/鈥\?/g, " - ")
+    .replace(/脳/g, "x")
+    .replace(/掳/g, "deg")
     .replace(/鈥檚/g, "'s")
     .replace(/鈥檛/g, "n't")
     .replace(/鈥檙/g, "'r")
@@ -379,14 +381,14 @@ function articleRecordToArray(record) {
   const markdown = cleanText(record.markdown || "");
   const image = images[record.imageIndex % images.length] || images[0];
   const article = [
-    record.category,
-    record.title,
-    record.deck,
+    cleanText(record.category),
+    cleanText(record.title),
+    cleanText(record.deck),
     image,
-    record.date,
+    cleanText(record.date),
     record.slug,
     markdownToHtml(markdown),
-    record.author,
+    cleanText(record.author),
   ];
   article.sourceFile = record.sourceFile;
   return article;
@@ -489,6 +491,19 @@ function feedFilterHtml() {
     `<button class="active" type="button" data-filter="all">Latest</button>`,
     ...categories.slice(0, 5).map((category) => `<button type="button" data-filter="${escapeHtml(slugify(category))}">${escapeHtml(category)}</button>`),
   ].join("");
+}
+
+function articleDateValue(article) {
+  const value = String(article[4] || "").replace(/\b(\d{1,2})(st|nd|rd|th)\b/g, "$1");
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function latestArticles() {
+  return articles
+    .map((article, index) => ({ article, index }))
+    .sort((a, b) => articleDateValue(b.article) - articleDateValue(a.article) || b.index - a.index)
+    .map((entry) => entry.article);
 }
 
 function headerHtml(active = "articles") {
@@ -616,6 +631,14 @@ function communityItem(item, index) {
 }
 
 function renderHtml() {
+  const homeLatestArticles = latestArticles();
+  const homeFeatured = homeLatestArticles.slice(0, 3).map((article) => ({
+    category: article[0],
+    title: article[1],
+    image: article[3],
+    slug: article[5],
+  }));
+
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -642,7 +665,7 @@ function renderHtml() {
             <a href="${categoryPath(categories[0])}">View All</a>
           </div>
           <div class="featured-grid">
-            ${featured
+            ${homeFeatured
               .map(
                 (item, index) => `
                 <a class="feature-card feature-${index + 1}" href="${escapeHtml(item.slug ? `article-${item.slug}.html` : homeHref())}">
@@ -676,7 +699,7 @@ function renderHtml() {
             ${feedFilterHtml()}
           </div>
           <div class="story-list">
-            ${articles.map(articleCard).join("")}
+            ${homeLatestArticles.map(articleCard).join("")}
           </div>
           <nav class="pagination" aria-label="Pagination">
             <span>Page 1</span>
