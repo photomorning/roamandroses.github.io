@@ -446,7 +446,9 @@ function headerHtml(active = "articles") {
 }
 
 function footerHtml() {
-  const footerCategories = [...categories, "News", "Reviews", "Originals", "Business"].filter((item, index, array) => array.indexOf(item) === index);
+  const footerCategories = categories.length ? categories : ["Skincare"];
+  const articleLinks = footerCategories.slice(0, 3).map((category) => `<a href="${categoryPath(category)}">${escapeHtml(category)}</a>`).join("");
+  const communityLinks = footerCategories.slice(3, 6).map((category) => `<a href="${categoryPath(category)}">${escapeHtml(category)}</a>`).join("");
   return `<footer class="site-footer">
       <div class="footer-inner">
         <div>
@@ -455,15 +457,11 @@ function footerHtml() {
         </div>
         <nav aria-label="Footer articles">
           <h2>Articles</h2>
-          <a href="${categoryPath(footerCategories[0])}">${escapeHtml(footerCategories[0])}</a>
-          <a href="${categoryPath(footerCategories[1])}">${escapeHtml(footerCategories[1])}</a>
-          <a href="${categoryPath(footerCategories[2])}">${escapeHtml(footerCategories[2])}</a>
+          ${articleLinks}
         </nav>
         <nav aria-label="Footer community">
           <h2>Community</h2>
-          <a href="${categoryPath(footerCategories[3])}">${escapeHtml(footerCategories[3])}</a>
-          <a href="${categoryPath(footerCategories[4])}">${escapeHtml(footerCategories[4])}</a>
-          <a href="${categoryPath(footerCategories[5])}">${escapeHtml(footerCategories[5])}</a>
+          ${communityLinks || `<a href="contact-us.html">Join the Community</a>`}
         </nav>
         <nav aria-label="Footer about">
           <h2>About</h2>
@@ -552,48 +550,20 @@ function renderHtml() {
   </head>
   <body>
     <a class="skip-link" href="#content">Skip to main content</a>
-    <header class="site-header">
-      <div class="header-inner">
-        <a class="brand" href="index.html" aria-label="${escapeHtml(site.name)} home">
-          ${brandHtml()}
-        </a>
-        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">
-          <span></span><span></span><span></span>
-        </button>
-        <nav id="main-nav" class="main-nav" aria-label="Main navigation">
-          <a href="index.html">Articles</a>
-          <a href="${categoryPath("Reviews")}">Reviews</a>
-          <a href="${categoryPath("Originals")}">Community</a>
-          <a href="${categoryPath("Business")}">Contests</a>
-          <a href="advertise.html">Store</a>
-        </nav>
-        <form class="site-search" role="search">
-          <input type="search" placeholder="Search" aria-label="Search stories" />
-        </form>
-        <div class="auth-links">
-          <a href="contact-us.html">Log In</a>
-          <a class="join" href="contact-us.html">Sign Up</a>
-        </div>
-      </div>
-      <div class="section-nav" aria-label="Section navigation">
-        <a class="active" href="index.html">Articles</a>
-        <a href="${categoryPath("Lighting")}">Photos</a>
-        <a href="contact-us.html">Members</a>
-      </div>
-    </header>
+    ${headerHtml("articles")}
 
     <main id="content">
       <section class="top-grid" aria-label="Featured photography content">
         <div class="featured-panel">
           <div class="section-heading">
             <h1>Featured Articles</h1>
-            <a href="#">View All</a>
+            <a href="${categoryPath(categories[0])}">View All</a>
           </div>
           <div class="featured-grid">
             ${featured
               .map(
                 (item, index) => `
-                <a class="feature-card feature-${index + 1}" href="${escapeHtml(item.slug ? `article-${item.slug}.html` : "#")}">
+                <a class="feature-card feature-${index + 1}" href="${escapeHtml(item.slug ? `article-${item.slug}.html` : "index.html")}">
                   <img src="${escapeHtml(imageSrc(item.image, "feature"))}" alt="${escapeHtml(item.title)}" />
                   <span>${escapeHtml(item.category)}</span>
                   <h2>${escapeHtml(item.title)}</h2>
@@ -632,7 +602,7 @@ function renderHtml() {
           </div>
           <nav class="pagination" aria-label="Pagination">
             <span>Page 1</span>
-            <a href="#">Next page</a>
+            <a href="${categoryPath(categories[0])}">Next page</a>
           </nav>
         </div>
 
@@ -643,7 +613,7 @@ function renderHtml() {
               ${reviewLinks
                 .map(
                   (title, index) => `
-                  <a href="#">
+                  <a href="${escapeHtml(articlePath(articles[(index + 4) % articles.length]))}">
                     <img src="${escapeHtml(imageSrc(images[(index + 4) % images.length], "thumb"))}" alt="${escapeHtml(title)}" loading="lazy" />
                     <span>${escapeHtml(title)}</span>
                   </a>`
@@ -658,7 +628,7 @@ function renderHtml() {
               <span class="contest-stats">7 entries - 252 votes</span>
               <h2>Critique the Community: Dark</h2>
               <p>Enter your best low-key image and compare your edit with the community's favorite photographs.</p>
-              <a href="#">Enter Contest</a>
+              <a href="contact-us.html">Enter Contest</a>
               <small>Deadline: May 30, 2026 12:30pm EDT</small>
             </div>
           </section>
@@ -671,33 +641,7 @@ function renderHtml() {
       </section>
     </main>
 
-    <footer class="site-footer">
-      <div class="footer-inner">
-        <div>
-          <a class="brand footer-brand" href="index.html" aria-label="${escapeHtml(site.name)} home">${brandHtml()}</a>
-          <p>A static photography front page for ${escapeHtml(site.domain)} with localized AVIF imagery.</p>
-        </div>
-        <nav aria-label="Footer articles">
-          <h2>Articles</h2>
-          <a href="${categoryPath("News")}">Latest News</a>
-          <a href="${categoryPath("Reviews")}">Gear Reviews</a>
-          <a href="${categoryPath("Originals")}">Originals</a>
-        </nav>
-        <nav aria-label="Footer community">
-          <h2>Community</h2>
-          <a href="${categoryPath("Lighting")}">Editors' Picks</a>
-          <a href="${categoryPath("Tutorials")}">Photo of the Day</a>
-          <a href="${categoryPath("Business")}">Discussion Groups</a>
-        </nav>
-        <nav aria-label="Footer about">
-          <h2>About</h2>
-          <a href="contact-us.html">Contact Us</a>
-          <a href="advertise.html">Advertise</a>
-          <a href="privacy-policy.html">Privacy Policy</a>
-        </nav>
-      </div>
-      <div class="copyright">Copyright 2026 ${escapeHtml(site.name)}. Published at ${escapeHtml(site.domain)}.</div>
-    </footer>
+    ${footerHtml()}
 
     <script src="assets/fstoppers-inspired.js" defer></script>
   </body>
