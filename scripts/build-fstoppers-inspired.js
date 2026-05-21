@@ -8,7 +8,7 @@ const assetDir = path.join(root, "assets");
 const imageDir = path.join(assetDir, "images");
 const contentDir = path.join(root, "content");
 const publishedArticlesPath = path.join(contentDir, "articles.json");
-// released is the pending-publish drop folder; the build reads it without archiving.
+// released is the pending-publish drop folder; imported markdown is cleared after publishing.
 const releasedDir = path.join(root, "released");
 const outPath = path.join(root, "index.html");
 
@@ -229,6 +229,10 @@ function articlePath(article) {
   return article[5] ? `article-${article[5]}.html` : "#";
 }
 
+function homeHref() {
+  return "/";
+}
+
 function categoryDescription(category, count = 0) {
   const total = count || articles.filter((article) => article[0] === category).length;
   return `${site.name} ${category.toLowerCase()} coverage with ${total} stories, practical notes, and polished editorial updates.`;
@@ -403,11 +407,17 @@ async function readReleasedFiles() {
   return (await fs.readdir(releasedDir)).filter((file) => /\.md$/i.test(file)).sort((a, b) => a.localeCompare(b));
 }
 
+async function clearReleasedFiles(files) {
+  if (!files.length) return;
+  await Promise.all(files.map((file) => fs.unlink(path.join(releasedDir, file))));
+}
+
 async function loadArticleContent() {
   const authors = ["Mara Ellison", "Felicia Bloom", "Nina Vale", "June Hart", "Cleo Nash", "Ari Lane"];
   const records = await loadPublishedRecords();
   const existingSourceFiles = new Set(records.map((record) => record.sourceFile).filter(Boolean));
-  const files = await readReleasedFiles();
+  const skipReleased = process.env.SKIP_RELEASED === "1";
+  const files = skipReleased ? [] : await readReleasedFiles();
 
   for (let index = 0; index < files.length; index += 1) {
     const file = files[index];
@@ -436,6 +446,9 @@ async function loadArticleContent() {
     await fs.mkdir(contentDir, { recursive: true });
     await fs.writeFile(publishedArticlesPath, `${JSON.stringify(records, null, 2)}\n`, "utf8");
   }
+  if (!skipReleased) {
+    await clearReleasedFiles(files);
+  }
 
   const loadedArticles = records.map(articleRecordToArray);
   if (!loadedArticles.length) return;
@@ -447,7 +460,7 @@ async function loadArticleContent() {
     image: article[3],
     slug: article[5],
   }));
-  categories = [...new Set(loadedArticles.map((article) => article[0]))];
+  categories = [...new Set(loadedArticles.map((article) => article[0]))].slice(0, 5);
 }
 
 async function cleanupGeneratedPages() {
@@ -464,20 +477,34 @@ function navCategory(index, fallback) {
   return categories[index] || fallback;
 }
 
+function categoryNavHtml(active) {
+  return categories
+    .slice(0, 5)
+    .map((category) => `<a class="${active === category ? "active" : ""}" href="${categoryPath(category)}">${escapeHtml(category)}</a>`)
+    .join("");
+}
+
+function feedFilterHtml() {
+  return [
+    `<button class="active" type="button" data-filter="all">Latest</button>`,
+    ...categories.slice(0, 5).map((category) => `<button type="button" data-filter="${escapeHtml(slugify(category))}">${escapeHtml(category)}</button>`),
+  ].join("");
+}
+
 function headerHtml(active = "articles") {
   const navOne = navCategory(0, "Reviews");
   const navTwo = navCategory(1, "Originals");
   const navThree = navCategory(2, "Business");
   return `<header class="site-header">
       <div class="header-inner">
-        <a class="brand" href="index.html" aria-label="${escapeHtml(site.name)} home">
+        <a class="brand" href="${homeHref()}" aria-label="${escapeHtml(site.name)} home">
           ${brandHtml()}
         </a>
         <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">
           <span></span><span></span><span></span>
         </button>
         <nav id="main-nav" class="main-nav" aria-label="Main navigation">
-          <a href="index.html">Articles</a>
+          <a href="${homeHref()}">Articles</a>
           <a href="${categoryPath(navOne)}">${escapeHtml(navOne)}</a>
           <a href="${categoryPath(navTwo)}">Community</a>
           <a href="${categoryPath(navThree)}">Contests</a>
@@ -491,11 +518,10 @@ function headerHtml(active = "articles") {
           <a class="join" href="contact-us.html">Sign Up</a>
         </div>
       </div>
-      <div class="section-nav" aria-label="Section navigation">
-        <a class="${active === "articles" ? "active" : ""}" href="index.html">Articles</a>
-        <a class="${active === "photos" ? "active" : ""}" href="${categoryPath(navOne)}">Photos</a>
-        <a class="${active === "members" ? "active" : ""}" href="contact-us.html">Members</a>
-      </div>
+      <nav class="section-nav" aria-label="Category navigation">
+        <a class="${active === "articles" ? "active" : ""}" href="${homeHref()}">Latest</a>
+        ${categoryNavHtml(active)}
+      </nav>
     </header>`;
 }
 
@@ -506,7 +532,7 @@ function footerHtml() {
   return `<footer class="site-footer">
       <div class="footer-inner">
         <div>
-          <a class="brand footer-brand" href="index.html" aria-label="${escapeHtml(site.name)} home">${brandHtml()}</a>
+          <a class="brand footer-brand" href="${homeHref()}" aria-label="${escapeHtml(site.name)} home">${brandHtml()}</a>
           <p>A static photography front page for ${escapeHtml(site.domain)} with localized AVIF imagery.</p>
         </div>
         <nav aria-label="Footer articles">
@@ -529,7 +555,7 @@ function footerHtml() {
 }
 
 function pageShell({ title, description, canonical, body, active = "articles" }) {
-  const canonicalUrl = new URL(canonical || "index.html", site.url).href;
+  const canonicalUrl = new URL(canonical || "/", site.url).href;
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -558,7 +584,7 @@ function articleCard(article, index) {
   const [category, title, deck, image, date] = article;
   const href = articlePath(article);
   return `
-    <article class="story-card" data-category="${escapeHtml(category.toLowerCase())}" data-search="${escapeHtml(`${title} ${deck} ${category}`.toLowerCase())}">
+    <article class="story-card" data-category="${escapeHtml(slugify(category))}" data-search="${escapeHtml(`${title} ${deck} ${category}`.toLowerCase())}">
       <a class="story-image" href="${escapeHtml(href)}" aria-label="${escapeHtml(title)}">
         <img src="${escapeHtml(imageSrc(image, "story"))}" alt="${escapeHtml(title)}" loading="${index < 3 ? "eager" : "lazy"}" />
         <span>${escapeHtml(category)}</span>
@@ -575,10 +601,12 @@ function articleCard(article, index) {
     </article>`;
 }
 
-function communityItem(item) {
+function communityItem(item, index) {
   const [date, author, title, image, votes] = item;
+  const linkedArticle = articles[index % articles.length];
+  const href = linkedArticle ? articlePath(linkedArticle) : categoryPath(categories[0]);
   return `
-    <a class="photo-row" href="#">
+    <a class="photo-row" href="${escapeHtml(href)}">
       <img src="${escapeHtml(imageSrc(image, "square"))}" alt="${escapeHtml(title)}" loading="lazy" />
       <span class="photo-date">${escapeHtml(date)}</span>
       <strong>${escapeHtml(author)}</strong>
@@ -617,7 +645,7 @@ function renderHtml() {
             ${featured
               .map(
                 (item, index) => `
-                <a class="feature-card feature-${index + 1}" href="${escapeHtml(item.slug ? `article-${item.slug}.html` : "index.html")}">
+                <a class="feature-card feature-${index + 1}" href="${escapeHtml(item.slug ? `article-${item.slug}.html` : homeHref())}">
                   <img src="${escapeHtml(imageSrc(item.image, "feature"))}" alt="${escapeHtml(item.title)}" />
                   <span>${escapeHtml(item.category)}</span>
                   <h2>${escapeHtml(item.title)}</h2>
@@ -629,7 +657,7 @@ function renderHtml() {
 
         <aside class="community-panel" aria-label="${escapeHtml(site.name)} community">
           <div class="section-heading">
-            <h2>${escapeHtml(site.name)} Community</h2>
+            <h2><a href="${categoryPath(categories[0])}">${escapeHtml(site.name)} Community</a></h2>
           </div>
           <div class="community-tabs" role="tablist" aria-label="Community galleries">
             <button class="active" type="button">Photo of the Day</button>
@@ -645,11 +673,7 @@ function renderHtml() {
       <section class="content-grid" aria-label="Latest stories">
         <div class="feed-column">
           <div class="feed-tabs" role="tablist" aria-label="Article filters">
-            <button class="active" type="button" data-filter="all">Latest</button>
-            <button type="button" data-filter="news">News</button>
-            <button type="button" data-filter="originals">Originals</button>
-            <button type="button" data-filter="reviews">Reviews</button>
-            <button type="button" data-filter="tutorials">Tutorials</button>
+            ${feedFilterHtml()}
           </div>
           <div class="story-list">
             ${articles.map(articleCard).join("")}
@@ -662,7 +686,7 @@ function renderHtml() {
 
         <aside class="sidebar" aria-label="More photography content">
           <section class="side-block">
-            <h2>Latest Gear Reviews</h2>
+            <h2>Editor's Picks</h2>
             <div class="review-list">
               ${reviewLinks
                 .map(
@@ -732,7 +756,7 @@ function renderCategoryPage(category) {
         <div class="feed-column">
           <div class="section-heading">
             <h2>${escapeHtml(category)} Stories</h2>
-            <a href="index.html">Back to Home</a>
+            <a href="${homeHref()}">Back to Home</a>
           </div>
           <div class="story-list">
             ${fallbackEntries.map(articleCard).join("")}
@@ -761,7 +785,7 @@ function renderCategoryPage(category) {
     description,
     canonical: categoryPath(category),
     body,
-    active: category === categories[0] ? "photos" : "articles",
+    active: category,
   });
 }
 
@@ -803,7 +827,7 @@ function renderArticlePage(article) {
     description: deck,
     canonical: `article-${slug}.html`,
     body,
-    active: "articles",
+    active: category,
   });
 }
 
@@ -1019,6 +1043,46 @@ img {
   background: var(--dark-2);
 }
 
+.section-nav {
+  border-top: 1px solid #2d2d2d;
+  background: linear-gradient(180deg, #202020 0%, #181818 100%);
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  padding: 0 18px;
+  overflow-x: auto;
+}
+
+.section-nav a {
+  position: relative;
+  min-width: max-content;
+  padding: 11px 16px 12px;
+  color: #d8d8d8;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.section-nav a::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 3px;
+  background: transparent;
+}
+
+.section-nav a:hover,
+.section-nav a:focus-visible,
+.section-nav a.active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.section-nav a.active::after {
+  background: var(--accent);
+}
+
 .site-search input {
   width: 100%;
   height: 34px;
@@ -1046,28 +1110,6 @@ img {
 .auth-links .join {
   border: 1px solid #555555;
   padding: 7px 10px;
-}
-
-.section-nav {
-  border-top: 1px solid #2b2b2b;
-  background: #1d1d1d;
-  display: flex;
-  justify-content: center;
-  gap: 1px;
-}
-
-.section-nav a {
-  width: 112px;
-  padding: 10px 14px;
-  color: #d6d6d6;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.section-nav a.active {
-  background: var(--accent);
-  color: #ffffff;
 }
 
 .nav-toggle {
@@ -1795,11 +1837,6 @@ main {
 
   .site-search {
     grid-column: 1 / -1;
-  }
-
-  .section-nav {
-    justify-content: flex-start;
-    overflow-x: auto;
   }
 
   main {
