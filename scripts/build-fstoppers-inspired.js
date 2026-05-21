@@ -6,6 +6,8 @@ const sharp = require("sharp");
 const root = path.resolve(__dirname, "..");
 const assetDir = path.join(root, "assets");
 const imageDir = path.join(assetDir, "images");
+const contentDir = path.join(root, "content");
+const publishedArticlesPath = path.join(contentDir, "articles.json");
 // released is the pending-publish drop folder; the build reads it without archiving.
 const releasedDir = path.join(root, "released");
 const outPath = path.join(root, "index.html");
@@ -183,6 +185,10 @@ function stripMarkdown(value = "") {
     .trim();
 }
 
+function stripMarkdownImages(value = "") {
+  return cleanText(value).replace(/^!\[[^\]]*\]\([^)]+\)\s*$/gm, "");
+}
+
 function inlineMarkdown(value = "") {
   return escapeHtml(cleanText(value))
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
@@ -335,6 +341,7 @@ function markdownToHtml(markdown) {
       continue;
     }
     if (/^#\s+/.test(line)) continue;
+    if (/^!\[[^\]]*\]\([^)]+\)$/.test(line)) continue;
     if (/^###\s+/.test(line)) {
       flushParagraph();
       flushList();
@@ -364,36 +371,83 @@ function localDate(value) {
   return value.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
-async function loadReleasedArticles() {
-  if (!(await pathExists(releasedDir))) return;
-  const files = (await fs.readdir(releasedDir)).filter((file) => /\.md$/i.test(file)).sort((a, b) => a.localeCompare(b));
-  if (!files.length) return;
+function articleRecordToArray(record) {
+  const markdown = cleanText(record.markdown || "");
+  const image = images[record.imageIndex % images.length] || images[0];
+  const article = [
+    record.category,
+    record.title,
+    record.deck,
+    image,
+    record.date,
+    record.slug,
+    markdownToHtml(markdown),
+    record.author,
+  ];
+  article.sourceFile = record.sourceFile;
+  return article;
+}
 
+async function loadPublishedRecords() {
+  if (!(await pathExists(publishedArticlesPath))) return [];
+  const records = JSON.parse(await fs.readFile(publishedArticlesPath, "utf8"));
+  if (!Array.isArray(records)) return [];
+  return records.map((record) => ({
+    ...record,
+    markdown: stripMarkdownImages(record.markdown || ""),
+  }));
+}
+
+async function readReleasedFiles() {
+  if (!(await pathExists(releasedDir))) return [];
+  return (await fs.readdir(releasedDir)).filter((file) => /\.md$/i.test(file)).sort((a, b) => a.localeCompare(b));
+}
+
+async function loadArticleContent() {
   const authors = ["Mara Ellison", "Felicia Bloom", "Nina Vale", "June Hart", "Cleo Nash", "Ari Lane"];
-  const loaded = [];
+  const records = await loadPublishedRecords();
+  const existingSourceFiles = new Set(records.map((record) => record.sourceFile).filter(Boolean));
+  const files = await readReleasedFiles();
 
   for (let index = 0; index < files.length; index += 1) {
     const file = files[index];
+    const sourceFile = `released/${file}`;
+    if (existingSourceFiles.has(sourceFile)) continue;
     const filePath = path.join(releasedDir, file);
     const stat = await fs.stat(filePath);
-    const markdown = cleanText(await fs.readFile(filePath, "utf8"));
+    const markdown = stripMarkdownImages(await fs.readFile(filePath, "utf8"));
     const title = extractTitle(markdown, file);
     const slug = slugify(title);
     const category = categoryFor(title, markdown);
-    const image = images[index % images.length];
-    const article = [category, title, extractDeck(markdown), image, localDate(stat.mtime), slug, markdownToHtml(markdown), authors[index % authors.length]];
-    article.sourceFile = `released/${file}`;
-    loaded.push(article);
+    records.push({
+      sourceFile,
+      title,
+      slug,
+      category,
+      deck: extractDeck(markdown),
+      date: localDate(stat.mtime),
+      author: authors[records.length % authors.length],
+      imageIndex: records.length % images.length,
+      markdown,
+    });
   }
 
-  articles = loaded;
-  featured = loaded.slice(0, 3).map((article) => ({
+  if (records.length) {
+    await fs.mkdir(contentDir, { recursive: true });
+    await fs.writeFile(publishedArticlesPath, `${JSON.stringify(records, null, 2)}\n`, "utf8");
+  }
+
+  const loadedArticles = records.map(articleRecordToArray);
+  if (!loadedArticles.length) return;
+
+  articles = loadedArticles;
+  featured = loadedArticles.slice(0, 3).map((article) => ({
     category: article[0],
     title: article[1],
     image: article[3],
     slug: article[5],
   }));
-  categories = [...new Set(loaded.map((article) => article[0]))];
+  categories = [...new Set(loadedArticles.map((article) => article[0]))];
 }
 
 async function cleanupGeneratedPages() {
@@ -1882,7 +1936,7 @@ document.querySelectorAll(".community-tabs button").forEach((button) => {
 
 async function main() {
   await fs.mkdir(assetDir, { recursive: true });
-  await loadReleasedArticles();
+  await loadArticleContent();
   await localizeImages();
   await cleanupGeneratedPages();
   await fs.writeFile(outPath, renderHtml(), "utf8");
