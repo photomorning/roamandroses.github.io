@@ -8,8 +8,9 @@ const assetDir = path.join(root, "assets");
 const imageDir = path.join(assetDir, "images");
 const contentDir = path.join(root, "content");
 const publishedArticlesPath = path.join(contentDir, "articles.json");
-// released is the pending-publish drop folder; imported markdown is cleared after publishing.
+// released is the pending-publish drop folder; imported markdown is archived after publishing.
 const releasedDir = path.join(root, "released");
+const archiveDir = path.join(root, "archive", "released");
 const outPath = path.join(root, "index.html");
 
 const site = {
@@ -99,6 +100,7 @@ const imageVariants = {
 
 let imageAssetMap = new Map();
 let categories = [...new Set([...featured.map((item) => item.category), ...articles.map((article) => article[0])])];
+let importedReleasedFiles = [];
 
 const infoPages = [
   {
@@ -192,10 +194,14 @@ function extractMarkdownImages(markdown = "") {
   const urls = [];
   const pattern = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
   for (const match of markdown.matchAll(pattern)) {
-    const url = match[1];
+    const url = normalizeImageUrl(match[1]);
     if (/^https?:\/\//i.test(url)) urls.push(url);
   }
   return [...new Set(urls)];
+}
+
+function normalizeImageUrl(url = "") {
+  return String(url).replace(/(citygirldaily\.cc\/uploads\/\d+)\.$/i, "$1.jpg");
 }
 
 function inlineMarkdown(value = "") {
@@ -257,13 +263,28 @@ async function pathExists(target) {
 }
 
 async function downloadImage(url) {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; RoamAndRosesImageLocalizer/1.0)",
-      Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-    },
+  const source = new URL(url);
+  const referer = `${source.protocol}//${source.hostname}/`;
+  const headers = {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+    Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+    Referer: referer,
+    "Accept-Language": "en-US,en;q=0.9",
+  };
+  let response = await fetch(url, {
+    headers,
   });
-  if (!response.ok) throw new Error(`Image download failed ${response.status}: ${url}`);
+  if (!response.ok) {
+    const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url.replace(/^https?:\/\//i, ""))}`;
+    response = await fetch(proxyUrl, {
+    headers: {
+        ...headers,
+        Referer: "https://images.weserv.nl/",
+      },
+    });
+    if (!response.ok) throw new Error(`Image download failed ${response.status}: ${url}`);
+  }
   return Buffer.from(await response.arrayBuffer());
 }
 
@@ -304,8 +325,14 @@ async function localizeImages() {
         variants[variantName] = `assets/images/${fileName}`;
         continue;
       }
-      sourceBuffer ||= await downloadImage(url);
-      variants[variantName] = await writeVariant(sourceBuffer, url, variantName, options);
+      try {
+        sourceBuffer ||= await downloadImage(url);
+        variants[variantName] = await writeVariant(sourceBuffer, url, variantName, options);
+      } catch (error) {
+        console.warn(`Image localization skipped: ${url} (${error.message})`);
+        const fallbackVariant = variantName === "body" ? "feature" : variantName;
+        variants[variantName] = localized.get(images[0])?.[fallbackVariant] || imageSrc(images[0], fallbackVariant);
+      }
     }
     localized.set(url, variants);
   }
@@ -362,7 +389,7 @@ function markdownToHtml(markdown, options = {}) {
       flushParagraph();
       flushList();
       const alt = stripMarkdown(imageMatch[1] || "Article image");
-      const url = imageMatch[2];
+      const url = normalizeImageUrl(imageMatch[2]);
       if (options.skipFirstImage && !skippedHeroImage) {
         skippedHeroImage = true;
         continue;
@@ -422,7 +449,16 @@ function articleRecordToArray(record) {
   ];
   article.sourceFile = record.sourceFile;
   article.imageUrls = imageUrls;
+  article.markdown = markdown;
   return article;
+}
+
+function refreshArticleBodies() {
+  for (const article of articles) {
+    if (article.markdown) {
+      article[6] = markdownToHtml(article.markdown, { skipFirstImage: Boolean(article.imageUrls?.length) });
+    }
+  }
 }
 
 async function loadPublishedRecords() {
@@ -441,9 +477,18 @@ async function readReleasedFiles() {
   return (await fs.readdir(releasedDir)).filter((file) => /\.md$/i.test(file)).sort((a, b) => a.localeCompare(b));
 }
 
-async function clearReleasedFiles(files) {
+async function archiveReleasedFiles(files) {
   if (!files.length) return;
-  await Promise.all(files.map((file) => fs.unlink(path.join(releasedDir, file))));
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const targetDir = path.join(archiveDir, stamp);
+  await fs.mkdir(targetDir, { recursive: true });
+  for (const file of files) {
+    const from = path.join(releasedDir, file);
+    const to = path.join(targetDir, file);
+    if (await pathExists(from)) {
+      await fs.rename(from, to);
+    }
+  }
 }
 
 async function loadArticleContent() {
@@ -451,6 +496,7 @@ async function loadArticleContent() {
   const records = await loadPublishedRecords();
   const skipReleased = process.env.SKIP_RELEASED === "1";
   const files = skipReleased ? [] : await readReleasedFiles();
+  importedReleasedFiles = files;
 
   for (let index = 0; index < files.length; index += 1) {
     const file = files[index];
@@ -485,9 +531,6 @@ async function loadArticleContent() {
   if (records.length) {
     await fs.mkdir(contentDir, { recursive: true });
     await fs.writeFile(publishedArticlesPath, `${JSON.stringify(records, null, 2)}\n`, "utf8");
-  }
-  if (!skipReleased) {
-    await clearReleasedFiles(files);
   }
 
   const loadedArticles = records.map(articleRecordToArray);
@@ -2053,6 +2096,7 @@ async function main() {
   await fs.mkdir(assetDir, { recursive: true });
   await loadArticleContent();
   await localizeImages();
+  refreshArticleBodies();
   await cleanupGeneratedPages();
   await fs.writeFile(outPath, renderHtml(), "utf8");
   for (const category of categories) {
@@ -2068,6 +2112,7 @@ async function main() {
   }
   await fs.writeFile(path.join(assetDir, "fstoppers-inspired.css"), renderCss(), "utf8");
   await fs.writeFile(path.join(assetDir, "fstoppers-inspired.js"), renderJs(), "utf8");
+  await archiveReleasedFiles(importedReleasedFiles);
   console.log(`Built ${site.domain} front page, ${categories.length} category pages, ${articles.length} article pages, and ${infoPages.length} info pages.`);
 }
 
