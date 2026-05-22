@@ -358,12 +358,28 @@ function extractDeck(markdown) {
   return previewText(paragraph || "A Roam & Roses story on style, beauty, culture, and modern visual taste.");
 }
 
+function isGenericImageLabel(value = "") {
+  const label = stripMarkdown(value).trim().toLowerCase();
+  return !label || /^(mid|image|photo|picture|article image|img|media)$/i.test(label);
+}
+
+function imageCaption(alt, options, sectionTitle, imageNumber) {
+  const cleanAlt = stripMarkdown(alt || "");
+  if (!isGenericImageLabel(cleanAlt)) return cleanAlt;
+  const title = stripMarkdown(options.title || "Roam & Roses story");
+  const section = stripMarkdown(sectionTitle || "");
+  if (section && section.toLowerCase() !== title.toLowerCase()) return `${title} - ${section}`;
+  return `${title} - image ${imageNumber}`;
+}
+
 function markdownToHtml(markdown, options = {}) {
   const lines = cleanText(markdown).split("\n");
   const html = [];
   let paragraph = [];
   let listItems = [];
   let skippedHeroImage = false;
+  let currentSection = "";
+  let imageNumber = 0;
 
   const flushParagraph = () => {
     if (!paragraph.length) return;
@@ -388,17 +404,16 @@ function markdownToHtml(markdown, options = {}) {
     if (imageMatch) {
       flushParagraph();
       flushList();
-      const alt = stripMarkdown(imageMatch[1] || "Article image");
       const url = normalizeImageUrl(imageMatch[2]);
       if (options.skipFirstImage && !skippedHeroImage) {
         skippedHeroImage = true;
         continue;
       }
+      imageNumber += 1;
+      const caption = imageCaption(imageMatch[1], options, currentSection, imageNumber);
       const src = imageSrc(url, "body");
       html.push(
-        `<figure class="article-image"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt || "Article image")}" loading="lazy" />${
-          alt ? `<figcaption>${escapeHtml(alt)}</figcaption>` : ""
-        }</figure>`
+        `<figure class="article-image"><img src="${escapeHtml(src)}" alt="${escapeHtml(caption)}" loading="lazy" /><figcaption>${escapeHtml(caption)}</figcaption></figure>`
       );
       continue;
     }
@@ -407,13 +422,15 @@ function markdownToHtml(markdown, options = {}) {
     if (/^###\s+/.test(line)) {
       flushParagraph();
       flushList();
-      html.push(`<h3>${escapeHtml(stripMarkdown(line.replace(/^###\s+/, "")))}</h3>`);
+      currentSection = stripMarkdown(line.replace(/^###\s+/, ""));
+      html.push(`<h3>${escapeHtml(currentSection)}</h3>`);
       continue;
     }
     if (/^##\s+/.test(line)) {
       flushParagraph();
       flushList();
-      html.push(`<h2>${escapeHtml(stripMarkdown(line.replace(/^##\s+/, "")))}</h2>`);
+      currentSection = stripMarkdown(line.replace(/^##\s+/, ""));
+      html.push(`<h2>${escapeHtml(currentSection)}</h2>`);
       continue;
     }
     if (/^[-*]\s+/.test(line)) {
@@ -444,7 +461,7 @@ function articleRecordToArray(record) {
     image,
     cleanText(record.date),
     record.slug,
-    markdownToHtml(markdown, { skipFirstImage: Boolean(imageUrls.length) }),
+    markdownToHtml(markdown, { skipFirstImage: Boolean(imageUrls.length), title: record.title }),
     cleanText(record.author),
   ];
   article.sourceFile = record.sourceFile;
@@ -456,7 +473,7 @@ function articleRecordToArray(record) {
 function refreshArticleBodies() {
   for (const article of articles) {
     if (article.markdown) {
-      article[6] = markdownToHtml(article.markdown, { skipFirstImage: Boolean(article.imageUrls?.length) });
+      article[6] = markdownToHtml(article.markdown, { skipFirstImage: Boolean(article.imageUrls?.length), title: article[1] });
     }
   }
 }
