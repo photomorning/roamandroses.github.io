@@ -515,14 +515,15 @@ async function loadArticleContent() {
       slug,
       category,
       deck: extractDeck(markdown),
-      date: existing.date || localDate(stat.mtime),
+      date: localDate(stat.mtime),
       author: existing.author || authors[records.length % authors.length],
       imageIndex: existing.imageIndex ?? records.length % images.length,
       imageUrls: extractMarkdownImages(markdown),
       markdown,
     };
     if (existingIndex >= 0) {
-      records[existingIndex] = { ...existing, ...nextRecord };
+      records.splice(existingIndex, 1);
+      records.push({ ...existing, ...nextRecord });
     } else {
       records.push(nextRecord);
     }
