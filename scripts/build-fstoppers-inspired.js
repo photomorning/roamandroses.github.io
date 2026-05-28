@@ -22,6 +22,14 @@ const site = {
     "Roam & Roses covers style, beauty, skincare, red carpet moments, fashion week notes, and visual culture with polished editorial taste.",
 };
 
+const sponsorAd = {
+  file: "adorama-rentals.html",
+  brand: "Adorama Rentals",
+  target: "https://arc.prf.hn/click/camref:1100l5KcGt",
+  title: "Rent pro camera, lens, lighting, and production gear",
+  deck: "Book the kit you need for the next shoot without carrying the full cost of buying it.",
+};
+
 const images = [
   "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1400&q=84",
   "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=84",
@@ -571,7 +579,7 @@ async function cleanupGeneratedPages() {
 }
 
 function brandHtml() {
-  return `<span class="brand-mark" aria-hidden="true"><span class="brand-initial">R</span><span class="brand-rose"></span></span><span class="brand-wordmark"><span class="brand-text">Roam</span><span class="brand-amp">&amp;</span><span class="brand-text">Roses</span></span>`;
+  return `<span class="brand-wordmark"><span class="brand-text">Roam</span><span class="brand-amp">&amp;</span><span class="brand-text">Roses</span></span>`;
 }
 
 function navCategory(index, fallback) {
@@ -668,22 +676,96 @@ function footerHtml() {
     </footer>`;
 }
 
-function pageShell({ title, description, canonical, body, active = "articles" }) {
-  const canonicalUrl = new URL(canonical || "/", site.url).href;
-  return `<!DOCTYPE html>
-<html lang="en">
-  <head>
+function absoluteUrl(target = "/") {
+  return new URL(target || "/", site.url).href;
+}
+
+function isoDate(value) {
+  const timestamp = Date.parse(String(value || "").replace(/\b(\d{1,2})(st|nd|rd|th)\b/g, "$1"));
+  return Number.isNaN(timestamp) ? "2026-05-22" : new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function seoImageUrl(image = images[0]) {
+  return absoluteUrl(imageSrc(image, "feature"));
+}
+
+function jsonLdScript(data) {
+  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
+}
+
+function siteJsonLd() {
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: site.name,
+      url: site.url,
+      contactPoint: [
+        {
+          "@type": "ContactPoint",
+          email: "hello@roamandroses.com",
+          contactType: "customer support",
+        },
+      ],
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: site.name,
+      url: site.url,
+      potentialAction: {
+        "@type": "SearchAction",
+        target: `${site.url}?q={search_term_string}`,
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ];
+}
+
+function breadcrumbJsonLd(items) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: absoluteUrl(item.url),
+    })),
+  };
+}
+
+function metaHead({ title, description, canonical = "/", type = "website", image = images[0], jsonLd = [] }) {
+  const canonicalUrl = absoluteUrl(canonical);
+  const imageUrl = seoImageUrl(image);
+  const data = [...siteJsonLd(), ...jsonLd];
+  return `<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <meta name="theme-color" content="#181312" />
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
     <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
     <meta property="og:site_name" content="${escapeHtml(site.name)}" />
+    <meta property="og:type" content="${escapeHtml(type)}" />
     <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
+    <meta property="og:image" content="${escapeHtml(imageUrl)}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(title)}" />
+    <meta name="twitter:description" content="${escapeHtml(description)}" />
+    <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />
     <link rel="stylesheet" href="assets/fstoppers-inspired.css" />
-  </head>
+    ${data.map(jsonLdScript).join("\n    ")}
+  </head>`;
+}
+
+function pageShell({ title, description, canonical, body, active = "articles", type = "website", image = images[0], jsonLd = [] }) {
+  return `<!DOCTYPE html>
+<html lang="en">
+  ${metaHead({ title, description, canonical, type, image, jsonLd })}
   <body>
     <a class="skip-link" href="#content">Skip to main content</a>
     ${headerHtml(active)}
@@ -692,6 +774,20 @@ function pageShell({ title, description, canonical, body, active = "articles" })
     <script src="assets/fstoppers-inspired.js" defer></script>
   </body>
 </html>`;
+}
+
+function sponsorStripHtml() {
+  return `<section class="sponsor-strip" aria-label="Sponsored partner">
+        <a href="${escapeHtml(sponsorAd.file)}" class="sponsor-card">
+          <span class="sponsor-label">Sponsored</span>
+          <div>
+            <strong>${escapeHtml(sponsorAd.brand)}</strong>
+            <h2>${escapeHtml(sponsorAd.title)}</h2>
+            <p>${escapeHtml(sponsorAd.deck)}</p>
+          </div>
+          <span class="sponsor-cta">View rental options</span>
+        </a>
+      </section>`;
 }
 
 function articleCard(article, index) {
@@ -737,21 +833,23 @@ function renderHtml() {
     image: article[3],
     slug: article[5],
   }));
+  const homeJsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: `${site.name} latest stories`,
+      itemListElement: homeLatestArticles.slice(0, 12).map((article, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: absoluteUrl(articlePath(article)),
+        name: article[1],
+      })),
+    },
+  ];
 
   return `<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${escapeHtml(site.title)}</title>
-    <meta name="description" content="${escapeHtml(site.description)}" />
-    <link rel="canonical" href="${escapeHtml(site.url)}" />
-    <meta property="og:site_name" content="${escapeHtml(site.name)}" />
-    <meta property="og:url" content="${escapeHtml(site.url)}" />
-    <meta property="og:title" content="${escapeHtml(site.title)}" />
-    <meta property="og:description" content="${escapeHtml(site.description)}" />
-    <link rel="stylesheet" href="assets/fstoppers-inspired.css" />
-  </head>
+  ${metaHead({ title: site.title, description: site.description, canonical: "/", type: "website", image: homeLatestArticles[0]?.[3], jsonLd: homeJsonLd })}
   <body>
     <a class="skip-link" href="#content">Skip to main content</a>
     ${headerHtml("articles")}
@@ -791,6 +889,8 @@ function renderHtml() {
           <button class="load-more" type="button">Load More</button>
         </aside>
       </section>
+
+      ${sponsorStripHtml()}
 
       <section class="content-grid" aria-label="Latest stories">
         <div class="feed-column">
@@ -908,6 +1008,26 @@ function renderCategoryPage(category) {
     canonical: categoryPath(category),
     body,
     active: category,
+    image: fallbackEntries[0]?.[3],
+    jsonLd: [
+      breadcrumbJsonLd([
+        { name: site.name, url: "/" },
+        { name: category, url: categoryPath(category) },
+      ]),
+      {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: `${category} - ${site.name}`,
+        description,
+        url: absoluteUrl(categoryPath(category)),
+        hasPart: fallbackEntries.slice(0, 12).map((article) => ({
+          "@type": "Article",
+          headline: article[1],
+          url: absoluteUrl(articlePath(article)),
+          image: seoImageUrl(article[3]),
+        })),
+      },
+    ],
   });
 }
 
@@ -950,6 +1070,33 @@ function renderArticlePage(article) {
     canonical: `article-${slug}.html`,
     body,
     active: category,
+    type: "article",
+    image,
+    jsonLd: [
+      breadcrumbJsonLd([
+        { name: site.name, url: "/" },
+        { name: category, url: categoryPath(category) },
+        { name: title, url: `article-${slug}.html` },
+      ]),
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: title,
+        description: deck,
+        image: [seoImageUrl(image), ...(article.imageUrls || []).slice(1, 4).map((url) => seoImageUrl(url))],
+        datePublished: isoDate(date),
+        dateModified: isoDate(date),
+        author: {
+          "@type": "Person",
+          name: author,
+        },
+        publisher: {
+          "@type": "Organization",
+          name: site.name,
+        },
+        mainEntityOfPage: absoluteUrl(`article-${slug}.html`),
+      },
+    ],
   });
 }
 
@@ -977,21 +1124,74 @@ function renderInfoPage(page) {
     canonical: page.file,
     body,
     active: page.file === "contact-us.html" ? "members" : "articles",
+    jsonLd: [
+      breadcrumbJsonLd([
+        { name: site.name, url: "/" },
+        { name: page.title, url: page.file },
+      ]),
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: `${page.title} - ${site.name}`,
+        description: page.description,
+        url: absoluteUrl(page.file),
+      },
+    ],
   });
+}
+
+function renderSponsorRedirectPage() {
+  const title = `${sponsorAd.brand} - ${site.name}`;
+  const description = `Continue from ${site.name} to ${sponsorAd.brand} for camera, lens, lighting, and production rentals.`;
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#181312" />
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}" />
+    <meta http-equiv="refresh" content="2; url=${escapeHtml(sponsorAd.target)}" />
+    <link rel="stylesheet" href="assets/fstoppers-inspired.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to main content</a>
+    ${headerHtml("articles")}
+    <main id="content" class="page-main">
+      <section class="redirect-panel" aria-label="Leaving ${escapeHtml(site.name)}">
+        <span>Sponsored Partner</span>
+        <h1>Opening ${escapeHtml(sponsorAd.brand)}</h1>
+        <p>${escapeHtml(sponsorAd.deck)} You will be redirected in a moment.</p>
+        <a href="${escapeHtml(sponsorAd.target)}" rel="nofollow sponsored noopener">Continue now</a>
+      </section>
+    </main>
+    ${footerHtml()}
+    <script>
+      window.setTimeout(function () {
+        window.location.href = ${JSON.stringify(sponsorAd.target)};
+      }, 1800);
+    </script>
+  </body>
+</html>`;
 }
 
 function renderCss() {
   return `:root {
-  --bg: #f4f4f4;
+  --bg: #f6f6f2;
   --paper: #ffffff;
-  --ink: #151515;
-  --muted: #666666;
-  --line: #d8d8d8;
-  --dark: #121212;
-  --dark-2: #222222;
-  --accent: #e54b24;
-  --accent-dark: #b9361a;
-  --max: 1180px;
+  --paper-soft: #fbfaf7;
+  --ink: #161616;
+  --muted: #62625e;
+  --line: #ddd9d2;
+  --dark: #171717;
+  --dark-2: #272727;
+  --accent: #b94f64;
+  --accent-dark: #8f3549;
+  --accent-2: #2f7d73;
+  --max: 1208px;
+  --radius: 8px;
+  --shadow: 0 14px 34px rgba(22, 22, 22, 0.08);
 }
 
 * {
@@ -1006,8 +1206,9 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Inter, Arial, Helvetica, sans-serif;
   line-height: 1.45;
+  text-rendering: optimizeLegibility;
 }
 
 a {
@@ -1020,7 +1221,12 @@ img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: #dddddd;
+  background: #e4e1db;
+}
+
+:focus-visible {
+  outline: 3px solid rgba(185, 79, 100, 0.38);
+  outline-offset: 3px;
 }
 
 .skip-link {
@@ -1041,9 +1247,10 @@ img {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--dark);
+  background: rgba(23, 23, 23, 0.98);
   color: #ffffff;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+  backdrop-filter: saturate(1.2) blur(10px);
 }
 
 .header-inner {
@@ -1060,88 +1267,32 @@ img {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
   min-width: max-content;
   font-weight: 900;
   letter-spacing: 0;
   text-transform: none;
 }
 
-.brand-mark {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  isolation: isolate;
-  background: linear-gradient(135deg, #e54b24 0%, #b9361a 58%, #7f2619 100%);
-  color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22), 0 8px 18px rgba(0, 0, 0, 0.28);
-  transform: rotate(-6deg);
-}
-
-.brand-mark::before,
-.brand-mark::after,
-.brand-rose {
-  content: "";
-  position: absolute;
-  border: 1px solid rgba(255, 255, 255, 0.58);
-  pointer-events: none;
-}
-
-.brand-mark::before {
-  inset: 6px;
-}
-
-.brand-mark::after {
-  right: 6px;
-  bottom: 6px;
-  width: 9px;
-  height: 9px;
-  border-left: 0;
-  border-top: 0;
-}
-
-.brand-rose {
-  top: 6px;
-  left: 7px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50% 50% 50% 0;
-  background: rgba(255, 255, 255, 0.2);
-  transform: rotate(38deg);
-}
-
-.brand-initial {
-  position: relative;
-  z-index: 1;
-  font-size: 27px;
-  line-height: 1;
-  font-family: Georgia, serif;
-  font-weight: 800;
-  transform: rotate(6deg);
-}
-
 .brand-wordmark {
   display: inline-flex;
   align-items: baseline;
-  gap: 7px;
+  gap: 8px;
   color: #ffffff;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
 }
 
 .brand-text {
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 25px;
+  font-size: 30px;
   line-height: 1;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .brand-amp {
-  color: #ffb59f;
+  color: #e8a0ad;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 18px;
+  font-size: 22px;
   font-style: italic;
   font-weight: 700;
   line-height: 1;
@@ -1155,7 +1306,7 @@ img {
 
 .main-nav a {
   padding: 22px 12px;
-  color: #e8e8e8;
+  color: #e7e4de;
   font-size: 14px;
   font-weight: 700;
 }
@@ -1166,8 +1317,8 @@ img {
 }
 
 .section-nav {
-  border-top: 1px solid #2d2d2d;
-  background: linear-gradient(180deg, #202020 0%, #181818 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, #252525 0%, #1d1d1d 100%);
   display: flex;
   justify-content: center;
   gap: 0;
@@ -1208,8 +1359,9 @@ img {
 .site-search input {
   width: 100%;
   height: 34px;
-  border: 1px solid #3a3a3a;
-  background: #080808;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
   padding: 0 12px;
   font-size: 14px;
@@ -1230,7 +1382,8 @@ img {
 }
 
 .auth-links .join {
-  border: 1px solid #555555;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius);
   padding: 7px 10px;
 }
 
@@ -1252,8 +1405,8 @@ img {
 
 main {
   max-width: var(--max);
-  margin: 22px auto 0;
-  padding: 0 18px 42px;
+  margin: 26px auto 0;
+  padding: 0 20px 50px;
 }
 
 .section-heading {
@@ -1261,14 +1414,14 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 3px solid var(--dark);
-  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
 }
 
 .section-heading h1,
 .section-heading h2 {
   margin: 0;
-  padding: 0 0 7px;
+  padding: 0 0 9px;
   font-size: 22px;
   line-height: 1.15;
 }
@@ -1281,16 +1434,16 @@ main {
 
 .top-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 352px;
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 28px;
   align-items: start;
 }
 
 .featured-grid {
   display: grid;
   grid-template-columns: 1.35fr 1fr;
-  grid-template-rows: 238px 238px;
-  gap: 12px;
+  grid-template-rows: 250px 250px;
+  gap: 14px;
 }
 
 .feature-card {
@@ -1298,6 +1451,7 @@ main {
   overflow: hidden;
   min-height: 180px;
   background: #111111;
+  border-radius: var(--radius);
 }
 
 .feature-card::after {
@@ -1328,6 +1482,7 @@ main {
   display: inline-block;
   width: max-content;
   max-width: calc(100% - 32px);
+  border-radius: 999px;
   background: var(--accent);
   color: #ffffff;
   padding: 4px 7px;
@@ -1357,6 +1512,8 @@ main {
 .contest-card {
   background: var(--paper);
   border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 .community-panel {
@@ -1375,7 +1532,8 @@ main {
 .feed-tabs button,
 .load-more {
   border: 1px solid var(--line);
-  background: #eeeeee;
+  border-radius: var(--radius);
+  background: var(--paper-soft);
   color: #222222;
   height: 34px;
   padding: 0 11px;
@@ -1406,7 +1564,7 @@ main {
   gap: 1px 10px;
   align-items: center;
   min-height: 72px;
-  border-bottom: 1px solid #eeeeee;
+  border-bottom: 1px solid #eee9e1;
   padding-bottom: 10px;
 }
 
@@ -1447,7 +1605,7 @@ main {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #f0f0f0;
+  background: #f1ebe8;
   color: var(--accent-dark);
   font-size: 12px;
   font-style: normal;
@@ -1457,35 +1615,117 @@ main {
 .load-more {
   width: 100%;
   margin-top: 14px;
-  background: #222222;
+  background: var(--dark);
   color: #ffffff;
-  border-color: #222222;
+  border-color: var(--dark);
 }
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 26px;
+  grid-template-columns: minmax(0, 1fr) 326px;
+  gap: 30px;
+  margin-top: 26px;
+}
+
+.sponsor-strip {
   margin-top: 28px;
 }
 
+.sponsor-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #d7d0c5;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(110deg, rgba(185, 79, 100, 0.13), rgba(47, 125, 115, 0.12)),
+    var(--paper);
+  box-shadow: var(--shadow);
+  padding: 20px 22px;
+}
+
+.sponsor-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: var(--accent);
+}
+
+.sponsor-label {
+  display: inline-grid;
+  place-items: center;
+  min-width: 96px;
+  height: 34px;
+  border: 1px solid rgba(143, 53, 73, 0.25);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.sponsor-card strong {
+  display: block;
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.sponsor-card h2 {
+  margin: 3px 0 5px;
+  font-size: 24px;
+  line-height: 1.12;
+}
+
+.sponsor-card p {
+  max-width: 650px;
+  margin: 0;
+  color: #343431;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.sponsor-cta {
+  border-radius: var(--radius);
+  background: var(--dark);
+  color: #ffffff;
+  padding: 10px 13px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .feed-tabs {
-  border-bottom: 3px solid var(--dark);
-  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
 }
 
 .story-list {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
 .story-card {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 18px;
   background: var(--paper);
   border: 1px solid var(--line);
-  padding: 12px;
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.story-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgba(22, 22, 22, 0.11);
 }
 
 .story-card.is-hidden {
@@ -1496,6 +1736,7 @@ main {
   position: relative;
   min-height: 168px;
   overflow: hidden;
+  border-radius: 6px;
 }
 
 .story-image span {
@@ -1507,6 +1748,7 @@ main {
   padding: 4px 7px;
   font-size: 11px;
   font-weight: 800;
+  border-radius: 999px;
 }
 
 .story-copy time {
@@ -1518,7 +1760,7 @@ main {
 
 .story-copy h2 {
   margin: 0 0 7px;
-  font-size: 24px;
+  font-size: 23px;
   line-height: 1.14;
 }
 
@@ -1530,8 +1772,9 @@ main {
 
 .story-copy p {
   margin: 0 0 12px;
-  color: #333333;
+  color: #343431;
   font-size: 15px;
+  line-height: 1.55;
 }
 
 .story-meta {
@@ -1556,7 +1799,7 @@ main {
 .side-block h2,
 .contest-card h2 {
   margin: 0 0 12px;
-  border-bottom: 3px solid var(--dark);
+  border-bottom: 1px solid var(--line);
   padding-bottom: 7px;
   font-size: 20px;
 }
@@ -1571,7 +1814,7 @@ main {
   grid-template-columns: 78px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
-  border-bottom: 1px solid #eeeeee;
+  border-bottom: 1px solid #eee9e1;
   padding-bottom: 10px;
   font-weight: 800;
   font-size: 13px;
@@ -1580,6 +1823,7 @@ main {
 
 .review-list img {
   aspect-ratio: 4 / 3;
+  border-radius: 6px;
 }
 
 .contest-card {
@@ -1596,7 +1840,7 @@ main {
 
 .contest-stats {
   display: block;
-  color: var(--accent-dark);
+  color: var(--accent-2);
   font-size: 12px;
   font-weight: 800;
   margin-bottom: 8px;
@@ -1604,7 +1848,7 @@ main {
 
 .contest-card p {
   margin: 0 0 12px;
-  color: #333333;
+  color: #343431;
   font-size: 14px;
 }
 
@@ -1612,6 +1856,7 @@ main {
   display: inline-block;
   background: var(--accent);
   color: #ffffff;
+  border-radius: var(--radius);
   padding: 8px 10px;
   font-size: 12px;
   font-weight: 800;
@@ -1630,7 +1875,7 @@ main {
 }
 
 .exclusives a {
-  border-bottom: 1px solid #eeeeee;
+  border-bottom: 1px solid #eee9e1;
   padding-bottom: 8px;
   font-size: 14px;
   font-weight: 800;
@@ -1647,6 +1892,7 @@ main {
 .pagination a {
   border: 1px solid var(--line);
   background: #ffffff;
+  border-radius: var(--radius);
   padding: 8px 10px;
   font-size: 13px;
   font-weight: 800;
@@ -1662,10 +1908,12 @@ main {
 }
 
 .page-hero {
-  background: #ffffff;
+  background: linear-gradient(135deg, #ffffff 0%, #fbfaf7 100%);
   border: 1px solid var(--line);
   border-top: 4px solid var(--accent);
-  padding: 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 30px;
 }
 
 .page-hero span {
@@ -1678,22 +1926,23 @@ main {
 
 .page-hero h1 {
   margin: 5px 0 8px;
-  font-size: 36px;
+  font-size: 40px;
   line-height: 1.08;
 }
 
 .page-hero p {
   max-width: 720px;
   margin: 0;
-  color: #333333;
+  color: #343431;
   font-size: 16px;
+  line-height: 1.6;
 }
 
 .category-layout,
 .info-page {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 26px;
+  grid-template-columns: minmax(0, 1fr) 326px;
+  gap: 30px;
   align-items: start;
 }
 
@@ -1703,7 +1952,7 @@ main {
 }
 
 .category-menu a {
-  border-bottom: 1px solid #eeeeee;
+  border-bottom: 1px solid #eee9e1;
   padding: 8px 0;
   color: #222222;
   font-size: 14px;
@@ -1718,7 +1967,9 @@ main {
 .info-card {
   background: #ffffff;
   border: 1px solid var(--line);
-  padding: 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
 }
 
 .info-card p {
@@ -1726,10 +1977,54 @@ main {
   margin: 0 0 15px;
   color: #303030;
   font-size: 16px;
+  line-height: 1.7;
 }
 
 .info-card p:last-child {
   margin-bottom: 0;
+}
+
+.redirect-panel {
+  max-width: 760px;
+  margin: 28px auto;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  padding: 34px;
+  text-align: center;
+}
+
+.redirect-panel span {
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.redirect-panel h1 {
+  margin: 8px 0 10px;
+  font-size: 38px;
+  line-height: 1.1;
+}
+
+.redirect-panel p {
+  max-width: 560px;
+  margin: 0 auto 20px;
+  color: #343431;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.redirect-panel a {
+  display: inline-block;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #ffffff;
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .article-page {
@@ -1740,6 +2035,9 @@ main {
 .article-hero {
   background: #ffffff;
   border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
 .article-hero > a,
@@ -1763,15 +2061,16 @@ main {
   max-width: 900px;
   margin-top: 8px;
   margin-bottom: 10px;
-  font-size: 42px;
+  font-size: 46px;
   line-height: 1.06;
 }
 
 .article-hero p {
   max-width: 820px;
   margin-top: 0;
-  color: #333333;
+  color: #343431;
   font-size: 18px;
+  line-height: 1.58;
 }
 
 .article-byline {
@@ -1790,20 +2089,22 @@ main {
 
 .article-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 26px;
+  grid-template-columns: minmax(0, 1fr) 326px;
+  gap: 30px;
   align-items: start;
 }
 
 .article-body {
   background: #ffffff;
   border: 1px solid var(--line);
-  padding: 28px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 34px;
 }
 
 .article-body h2 {
-  margin: 30px 0 10px;
-  font-size: 25px;
+  margin: 34px 0 12px;
+  font-size: 27px;
   line-height: 1.18;
 }
 
@@ -1816,7 +2117,7 @@ main {
 .article-body li {
   color: #242424;
   font-size: 17px;
-  line-height: 1.72;
+  line-height: 1.78;
 }
 
 .article-body p {
@@ -1831,6 +2132,7 @@ main {
   width: 100%;
   max-height: 620px;
   object-fit: cover;
+  border-radius: 6px;
 }
 
 .article-image figcaption {
@@ -1937,6 +2239,15 @@ main {
     grid-template-columns: 1fr;
   }
 
+  .sponsor-card {
+    grid-template-columns: 1fr;
+  }
+
+  .sponsor-label,
+  .sponsor-cta {
+    width: max-content;
+  }
+
   .community-panel {
     order: 2;
   }
@@ -1958,20 +2269,15 @@ main {
   }
 
   .brand-text {
-    font-size: 18px;
-  }
-
-  .brand-mark {
-    width: 38px;
-    height: 38px;
+    font-size: 23px;
   }
 
   .brand-wordmark {
-    gap: 5px;
+    gap: 6px;
   }
 
   .brand-amp {
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .site-search {
@@ -2011,6 +2317,14 @@ main {
     font-size: 21px;
   }
 
+  .sponsor-card {
+    padding: 18px;
+  }
+
+  .sponsor-card h2 {
+    font-size: 21px;
+  }
+
   .page-hero {
     padding: 18px;
   }
@@ -2041,6 +2355,14 @@ main {
 
   .article-body {
     padding: 20px;
+  }
+
+  .redirect-panel {
+    padding: 24px 18px;
+  }
+
+  .redirect-panel h1 {
+    font-size: 30px;
   }
 
   .sidebar,
@@ -2128,6 +2450,7 @@ async function main() {
   for (const page of infoPages) {
     await fs.writeFile(path.join(root, page.file), renderInfoPage(page), "utf8");
   }
+  await fs.writeFile(path.join(root, sponsorAd.file), renderSponsorRedirectPage(), "utf8");
   await fs.writeFile(path.join(assetDir, "fstoppers-inspired.css"), renderCss(), "utf8");
   await fs.writeFile(path.join(assetDir, "fstoppers-inspired.js"), renderJs(), "utf8");
   await archiveReleasedFiles(importedReleasedFiles);
