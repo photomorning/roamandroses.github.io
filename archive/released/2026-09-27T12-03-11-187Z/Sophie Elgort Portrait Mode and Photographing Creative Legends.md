@@ -1,0 +1,117 @@
+# Sophie Elgort: Portrait Mode and Photographing Creative Legends
+
+Sophie Elgort's series *Portrait Mode*, which premiered on PBS All Arts, follows her as she photographs and interviews a group of creative figures who have spent decades working. The format reveals as much about the photographer as about the subjects, because a conversation on camera is difficult to fake.
+
+Elgort, the daughter of the fashion photographer Arthur Elgort, has built her own working identity behind the camera: warmer, more conversational, and more interested in process than in spectacle.
+
+![Scientist (chemist) Siarhei Besarab Studio portrait 2026 (04)](https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/Scientist_%28chemist%29_Siarhei_Besarab_Studio_portrait_2026_%2804%29.jpg/1920px-Scientist_%28chemist%29_Siarhei_Besarab_Studio_portrait_2026_%2804%29.jpg)
+
+*Photo: [Scientist (chemist) Siarhei Besarab Studio portrait 2026 (04).jpg](https://commons.wikimedia.org/wiki/File:Scientist_(chemist)_Siarhei_Besarab_Studio_portrait_2026_(04).jpg) by Volha Sh — CC BY-SA 4.0, via Wikimedia Commons.*
+
+## The Interview as Photographic Method
+
+Elgort interviews her subjects while photographing them, and the rapport that results is visible in the images. Her portraits read less like formal sittings and more like moments taken from a conversation that was already underway.
+
+The mechanism is not mysterious. A subject who is answering a question is thinking about the question, which means they are not thinking about the camera. That is the entire problem of portraiture solved for the duration of the answer, and it is why professional photographers spend so much time talking.
+
+There is a practical structure to this that anyone can apply.
+
+**Research before the session.** Know what your subject has done and what is interesting about it. Curiosity that has been prepared produces better questions than curiosity that has not.
+
+**Ask about the work rather than about the pose.** Questions about process put a subject in familiar territory and generate facial expressions that look like thought.
+
+**Listen to the answer.** The follow-up question is usually better than the prepared one, and it arrives while the subject is still animated.
+
+**Photograph during the answer.** This is the point of the exercise. The moment after a question, while someone is assembling a response, is where the unguarded frames live.
+
+**Do not interrupt the answer for the sake of a frame.** If the shot will not wait, take it quickly and quietly and let the sentence finish. Interrupting resets everything.
+
+**Keep the camera ready continuously.** A portrait delivered as a series of poses is worth less than one delivered as a record of twenty minutes of attention.
+
+## The Interview as a Deliverable
+
+The series also demonstrates something worth noting about how a career is built: the interview is a separate product from the portrait, and having both doubles what a session produces.
+
+For a photographer working with people whose time is limited, this is a considerable advantage. A single hour can yield a portrait for editorial use, a video interview or a recorded conversation, and written material that can accompany either. Clients commission the whole package, and access is used once rather than three times.
+
+The version of this available to a photographer without a broadcast partner is simpler than it sounds. Record the conversation on a phone, take stills as it happens, and treat the transcript as the raw material for an accompanying text. The photographs are better for the conversation having happened, and the text is more interesting for having been recorded rather than reconstructed.
+
+## Legacy and Independence
+
+Being the child of a well-known photographer is a real advantage in access and education, and a real problem in reception. Work is measured against the parent's, and the assumption of inherited success is difficult to disprove without simply making a great deal of work.
+
+Elgort's response has been to move in a direction her father did not occupy. Where his photography was about movement, spontaneity and fashion reportage, hers is built on conversation, warmth and the process of making. The distinction is deliberate, and it is the correct strategy: not to reject the inheritance, but to work in territory where the comparison has nothing to measure.
+
+The generalisable point applies well beyond famous families. Photographers who assist someone whose work they admire face the same problem, and the same answer works. Learn everything the mentor knows, then do something the mentor does not do.
+
+![Studio Andrea Marescalchi](https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1f/Studio_Andrea_Marescalchi.jpg/1920px-Studio_Andrea_Marescalchi.jpg)
+
+*Photo: [Studio Andrea Marescalchi.jpg](https://commons.wikimedia.org/wiki/File:Studio_Andrea_Marescalchi.jpg) by Andrea Marescalchi — CC BY-SA 4.0, via Wikimedia Commons.*
+
+## Practical Craft for This Kind of Portraiture
+
+The technical requirements of conversational portraiture are modest, and the constraints matter more than the equipment.
+
+**Work with light you do not have to adjust.** Available light and a single practical source let you keep talking rather than breaking off to move a stand.
+
+**Use a small camera.** A quiet body keeps the atmosphere conversational. A large lens pointed at someone's face while they talk produces exactly the self-consciousness you are trying to avoid.
+
+**Pick your background before the subject arrives.** Most subjects will sit where they are placed, so have that decided in advance and choose somewhere with depth rather than a bare wall.
+
+**Choose a shutter speed and aperture and leave them.** Changing settings constantly interrupts the flow. Depth of field and speed can be set once and the exposure adapted as needed.
+
+**Shoot a lot and edit hard.** Conversation portraits produce many frames of which three are useful. The volume is not a problem; failing to edit is.
+
+**Get the hands.** People talk with their hands, and hands raise a portrait above a head-and-shoulders record.
+
+## Practical Tips
+
+- Integrate genuine conversation into portrait sessions.
+- Interview your subjects and learn who they are before photographing them.
+- Build your own identity even when following in influential footsteps.
+- Curiosity about people is more valuable than technical skill.
+- Keep the camera ready while the conversation continues.
+- Commit to settings in advance so the flow is never interrupted.
+- Research first so that the questions are actually interesting.
+- Deliver more than a portrait: a conversation, a quote, a text.
+
+![Diane Morgan x Candid Portraits Ltd](https://upload.wikimedia.org/wikipedia/commons/a/a8/Diane_Morgan_x_Candid_Portraits_Ltd.jpg)
+
+*Photo: [Diane Morgan x Candid Portraits Ltd.jpg](https://commons.wikimedia.org/wiki/File:Diane_Morgan_x_Candid_Portraits_Ltd.jpg) by P. Lovell — CC BY-SA 4.0, via Wikimedia Commons.*
+
+### Further Reading
+
+- [a portrait prime for full-frame](https://www.roamandroses.com/article-nikon-35mm-f-1-8g-ed-review-the-affordable-full-frame-prime-that-punch.html)
+- [a camera strap built for long portrait sessions](https://www.roamandroses.com/article-holdfast-moneymaker-review-the-dual-camera-strap-that-changed-wedding.html)
+
+## Conclusion
+
+Sophie Elgort's *Portrait Mode* is a demonstration that the two halves of a shoot are the same activity. The interview is not a preliminary step taken to obtain a portrait; it is the method by which the portrait happens, and the conversation is worth capturing in its own right.
+
+The practical lesson is straightforward and available to anyone. Talk to the subject about something you are both interested in, keep the camera in your hands, take the frame while they are thinking, and let the session produce words as well as pictures. Warmth is not a style here. It is the technique.
+
+## FAQ
+
+### Who is Sophie Elgort?
+
+A photographer and the daughter of the fashion photographer Arthur Elgort. Her series *Portrait Mode*, which premiered on PBS All Arts, follows her photographing and interviewing creative figures, combining portraiture with documentary interview.
+
+### How does she make her subjects comfortable?
+
+By integrating genuine conversation into the process. Interviewing subjects and showing real curiosity produces rapport, and that rapport shows in relaxed, unposed portraits.
+
+### Why does photographing during an interview work better than directing a pose?
+
+Because a subject answering a question is thinking about the question rather than about the camera. That removes self-consciousness more reliably than any instruction, and the resulting frames look like thought rather than presentation.
+
+### How do I build my own identity if I trained with a famous photographer?
+
+Learn everything they know, then work in territory they do not occupy. Comparison can only measure you against the parent or mentor's subjects, so choose subjects that the comparison has no terms for.
+
+### Do I need a big production to make portraits like this?
+
+No. A small camera, available light, a decided background and a genuine interest in the person produce the whole effect. The valuable input is the conversation, and it costs nothing.
+
+### Should I record the conversation?
+
+Where the subject agrees, yes. It produces written material to accompany the images, and the knowledge that a good sentence may be quoted tends to keep the conversation focused.
