@@ -165,7 +165,7 @@ function slugify(value) {
     .replace(/&/g, " and ")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 70);
+    .slice(0, 120);
   return slug.replace(/^-+|-+$/g, "");
 }
 
@@ -212,8 +212,25 @@ function normalizeImageUrl(url = "") {
   return String(url).replace(/(citygirldaily\.cc\/uploads\/\d+)\.$/i, "$1.jpg");
 }
 
+function normalizeContentHref(url = "") {
+  try {
+    const parsed = new URL(url.replace(/&amp;/g, "&"));
+    if (parsed.origin === new URL(site.url).origin) {
+      return parsed.pathname === "/" ? "/" : parsed.pathname.replace(/^\//, "");
+    }
+    return parsed.href;
+  } catch {
+    return url;
+  }
+}
+
 function inlineMarkdown(value = "") {
   return escapeHtml(cleanText(value))
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_match, label, url) => {
+      const href = normalizeContentHref(url);
+      const externalAttrs = /^https?:\/\//i.test(href) ? ' rel="nofollow noopener"' : "";
+      return `<a href="${escapeHtml(href)}"${externalAttrs}>${label}</a>`;
+    })
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>")
     .replace(/`([^`]+)`/g, "<code>$1</code>");
@@ -371,13 +388,29 @@ function isGenericImageLabel(value = "") {
   return !label || /^(mid|image|photo|picture|article image|img|media)$/i.test(label);
 }
 
+function cleanImageCaption(value = "") {
+  return stripMarkdown(value)
+    .replace(/\.(jpe?g|png|webp|avif)$/i, "")
+    .replace(/\s+-\s+Flickr\s+-\s+.+$/i, "")
+    .replace(/\s+-\s+DPLA\s+-\s+[a-z0-9]+$/i, "")
+    .replace(/\s+\(\d{8,}\)$/g, "")
+    .replace(/\s+MET\s+[A-Z0-9]+$/i, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function imageCaption(alt, options, sectionTitle, imageNumber) {
-  const cleanAlt = stripMarkdown(alt || "");
+  const cleanAlt = cleanImageCaption(alt || "");
   if (!isGenericImageLabel(cleanAlt)) return cleanAlt;
   const title = stripMarkdown(options.title || "Roam & Roses story");
   const section = stripMarkdown(sectionTitle || "");
   if (section && section.toLowerCase() !== title.toLowerCase()) return `${title} - ${section}`;
   return `${title} - image ${imageNumber}`;
+}
+
+function isPhotoCreditLine(line = "") {
+  const text = String(line).trim();
+  return /^_?\*?Photo:\s+\[[^\]]+\]\(https?:\/\/commons\.wikimedia\.org\/wiki\/File:/i.test(text) || /^_?\*?Photo:.*via Wikimedia Commons/i.test(text);
 }
 
 function markdownToHtml(markdown, options = {}) {
@@ -403,6 +436,11 @@ function markdownToHtml(markdown, options = {}) {
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
+    if (isPhotoCreditLine(line)) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
     if (!line || /^-{3,}$/.test(line)) {
       flushParagraph();
       flushList();
